@@ -971,21 +971,9 @@ def process_options(args: List[str],
                      ', '.join(sorted(overlap)))
 
     # Process `--enable-error-code` and `--disable-error-code` flags
-    disabled_codes = set(options.disable_error_code)
-    enabled_codes = set(options.enable_error_code)
-
-    valid_error_codes = set(error_codes.keys())
-
-    invalid_codes = (enabled_codes | disabled_codes) - valid_error_codes
+    invalid_codes = options.process_error_codes_flags()
     if invalid_codes:
-        parser.error("Invalid error code(s): %s" %
-                     ', '.join(sorted(invalid_codes)))
-
-    options.disabled_error_codes |= {error_codes[code] for code in disabled_codes}
-    options.enabled_error_codes |= {error_codes[code] for code in enabled_codes}
-
-    # Enabling an error code always overrides disabling
-    options.disabled_error_codes -= options.enabled_error_codes
+        parser.error("Invalid error code(s): %s" % ', '.join(invalid_codes))
 
     # Set build flags.
     if options.strict_optional_whitelist is not None:

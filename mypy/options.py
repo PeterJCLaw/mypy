@@ -8,6 +8,7 @@ from typing import Dict, List, Mapping, Optional, Pattern, Set, Tuple, Callable,
 
 from mypy import defaults
 from mypy.util import get_class_descriptors, replace_object_state
+from mypy.errorcodes import error_codes
 
 if TYPE_CHECKING:
     from mypy.errors import ErrorCode
@@ -321,6 +322,25 @@ class Options:
     def __repr__(self) -> str:
         return 'Options({})'.format(pprint.pformat(self.snapshot()))
 
+    def process_error_codes_flags(self) -> List[str]:
+        """Process `--enable-error-code` and `--disable-error-code` flags.
+
+        Returns a list of invalid codes for the caller to warng the user about.
+        """
+        disabled_codes = set(self.disable_error_code)
+        enabled_codes = set(self.enable_error_code)
+
+        self.disabled_error_codes |= {error_codes[code] for code in disabled_codes}
+        self.enabled_error_codes |= {error_codes[code] for code in enabled_codes}
+
+        # Enabling an error code always overrides disabling
+        self.disabled_error_codes -= self.enabled_error_codes
+
+        valid_error_codes = set(error_codes.keys())
+        invalid_codes = (enabled_codes | disabled_codes) - valid_error_codes
+
+        return sorted(invalid_codes)
+
     def apply_changes(self, changes: Dict[str, object]) -> 'Options':
         new_options = Options()
         # Under mypyc, we don't have a __dict__, so we need to do worse things.
@@ -331,6 +351,8 @@ class Options:
             # This is the only option for which a per-module and a global
             # option sometimes beheave differently.
             new_options.ignore_missing_imports_per_module = True
+        if "enable_error_code" in changes or "disable_error_code" in changes:
+            new_options.process_error_codes_flags()
         return new_options
 
     def build_per_module_cache(self) -> None:
